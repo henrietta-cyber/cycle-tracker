@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cycle Tracker">
+<meta name="theme-color" content="#b3285a">
+<title>Cycle Tracker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Mono:wght@400;500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: one calm column. A countdown hero, then tabs for overview, logging, history and data. */
+:root {
+  color-scheme: light;
+  --bg: #f5f3f8;
+  --surface: #ffffff;
+  --fg: #241a30;
+  --muted: #6b6176;
+  --line: #e1dce8;
+  --period: #b3285a;
+  --on-period: #ffffff;
+  --period-soft: #f6d9e4;
+  --fertile: #1f7a72;
+  --fertile-soft: #d3ece8;
+  --warn: #8a5200;
+  --warn-soft: #fbebcf;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17121d; --surface: #211a2a; --fg: #f0eaf6; --muted: #a79bb4; --line: #352c42;
+    --period: #ee7aa3; --on-period: #2a0f1b; --period-soft: #4a2237;
+    --fertile: #59c8bc; --fertile-soft: #173a38; --warn: #f2c06b; --warn-soft: #43320f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17121d; --surface: #211a2a; --fg: #f0eaf6; --muted: #a79bb4; --line: #352c42;
+  --period: #ee7aa3; --on-period: #2a0f1b; --period-soft: #4a2237;
+  --fertile: #59c8bc; --fertile-soft: #173a38; --warn: #f2c06b; --warn-soft: #43320f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; }
+.mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.label { font-size: 0.72rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--period); outline-offset: 2px; }
+.btn {
+  background: var(--period); color: var(--on-period); border: 0; border-radius: 8px;
+  padding: 10px 16px; font-weight: 600; min-height: 42px;
+}
+.btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+.btn.danger { background: transparent; color: var(--period); border: 1px solid var(--period); }
+.btn.small { padding: 6px 10px; min-height: 34px; font-size: 0.85rem; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+header.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+header.top h1 { font-size: 1.1rem; letter-spacing: 0.01em; }
+
+.banner { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 0.9rem; }
+.banner .row { margin-top: 6px; }
+
+.hero { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.hero .big { font-family: var(--font-display); font-weight: 700; font-size: clamp(3.2rem, 14vw, 5.2rem); line-height: 0.95; color: var(--period); }
+.hero .big small { font-size: 0.32em; font-weight: 500; color: var(--fg); margin-left: 8px; letter-spacing: 0; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+.fact b { display: block; font-family: var(--font-display); font-size: 1.1rem; font-weight: 500; }
+.tag { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--fertile-soft); color: var(--fertile); }
+.tag.low { background: var(--warn-soft); color: var(--warn); }
+
+nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+nav.tabs button { background: none; border: 0; padding: 10px 14px; color: var(--muted); font-weight: 600; border-bottom: 3px solid transparent; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--period); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.panel[hidden] { display: none !important; }
+.panel { display: flex; flex-direction: column; gap: 16px; }
+
+/* calendar */
+.cal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cal-head h3 { min-width: 0; }
+.grid7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.dow { text-align: center; font-size: 0.72rem; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; }
+.d { aspect-ratio: 1; min-height: 38px; max-width: 100%; border: 1.5px solid transparent; border-radius: 8px; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 0.85rem; position: relative; padding: 0; }
+.d.blank { visibility: hidden; }
+.d.fertile { background: var(--fertile-soft); }
+.d.pred { background: var(--period-soft); border: 1.5px dashed var(--period); }
+.d.logged { background: var(--period); color: var(--on-period); }
+.d.ov::after { content: ""; position: absolute; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--fertile); }
+.d.logged.ov::after { background: var(--on-period); }
+.d.today { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--fg); }
+.d.sel { border-color: var(--fg); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -1px; margin-right: 5px; }
+.sel-panel { background: var(--bg); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+/* forecast + history lists */
+.list { display: flex; flex-direction: column; }
+.li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--line); }
+.li:first-child { border-top: 0; padding-top: 0; }
+.li > div { min-width: 0; }
+.li .meta { font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
+
+/* chart */
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 140px; position: relative; padding-top: 18px; border-bottom: 1px solid var(--line); }
+.bar { flex: 1 1 0; min-width: 0; background: var(--period); border-radius: 4px 4px 0 0; position: relative; }
+.bar.skip { background: transparent; border: 1.5px dashed var(--muted); border-bottom: 0; }
+.bar span { position: absolute; top: -17px; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
+.avgline { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--fertile); pointer-events: none; }
+.avgline span { position: absolute; right: 0; top: -18px; font-size: 0.72rem; color: var(--fertile); font-family: var(--font-mono); }
+
+/* forms */
+form { display: flex; flex-direction: column; gap: 14px; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; min-width: 0; }
+input[type="date"], input[type="text"], select, textarea { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%; min-width: 0; font-weight: 400; }
+textarea { min-height: 110px; resize: vertical; font-family: var(--font-mono); font-size: 0.8rem; }
+.err { color: var(--period); font-size: 0.88rem; min-height: 1.3em; }
+.ok { color: var(--fertile); font-size: 0.88rem; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.how { font-size: 0.9rem; color: var(--muted); display: flex; flex-direction: column; gap: 8px; }
+.how b { color: var(--fg); }
+details summary { cursor: pointer; font-weight: 600; }
+.empty { text-align: center; padding: 20px 8px; color: var(--muted); }
+.foot { font-size: 0.8rem; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Cycle Tracker</h1>
+    <span class="muted" style="font-size:0.85rem">Stored only in this browser</span>
+  </header>
+
+  <div id="banners"></div>
+  <section class="hero" id="hero" aria-live="polite"></section>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+    <button role="tab" data-tab="log" aria-selected="false">Log</button>
+    <button role="tab" data-tab="history" aria-selected="false">History</button>
+    <button role="tab" data-tab="data" aria-selected="false">Import &amp; export</button>
+  </nav>
+
+  <!-- Overview -->
+  <div class="panel" id="p-overview">
+    <div class="card">
+      <div class="cal-head">
+        <button class="btn ghost small" id="prev" aria-label="Previous month">&larr;</button>
+        <h3 id="monthTitle"></h3>
+        <button class="btn ghost small" id="next" aria-label="Next month">&rarr;</button>
+      </div>
+      <div class="grid7" id="dows"></div>
+      <div class="grid7" id="cal"></div>
+      <div class="legend">
+        <span><i style="background:var(--period)"></i>Logged period</span>
+        <span><i style="background:var(--period-soft);border:1.5px dashed var(--period)"></i>Predicted period</span>
+        <span><i style="background:var(--fertile-soft)"></i>Fertile window</span>
+        <span><i style="background:var(--fertile);border-radius:50%;width:8px;height:8px"></i>Ovulation (est.)</span>
+      </div>
+      <div id="selPanel"></div>
+    </div>
+    <div class="card">
+      <h3>Forecast</h3>
+      <div class="list" id="forecast"></div>
+    </div>
+    <details class="card">
+      <summary>How the prediction works</summary>
+      <div class="how">
+        <p><b>1. Cycle lengths.</b> A cycle is the number of days from one period start to the next. Gaps under 15 or over 60 days are ignored, since they usually mean a missed log.</p>
+        <p><b>2. Outliers.</b> With four or more cycles, lengths far from your median (a stressful month, illness, travel) are left out of the average. They show as dashed bars in History.</p>
+        <p><b>3. Recent cycles count more.</b> The last 12 valid cycles are averaged with weights that fade by 15% per cycle back, so the estimate follows your current pattern.</p>
+        <p><b>4. Few cycles.</b> With fewer than three cycles the average is pulled toward 28 days, and the window stays wide until more data arrives.</p>
+        <p><b>5. Window.</b> The margin is your weighted standard deviation, at least one day, and it grows for cycles further ahead.</p>
+        <p><b>6. Ovulation.</b> Estimated at 14 days before the predicted start. The fertile window is the 5 days before ovulation plus the day after.</p>
+        <p>This is a statistical estimate from your own history. It is not contraception and not medical advice.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- Log -->
+  <div class="panel" id="p-log" hidden>
+    <div class="card">
+      <h2 id="logTitle">Log a period</h2>
+      <form id="logForm" novalidate>
+        <div class="fields">
+          <label class="f" for="fStart">First day<input type="date" id="fStart" required></label>
+          <label class="f" for="fEnd">Last day (optional)<input type="date" id="fEnd"></label>
+          <label class="f" for="fFlow">Flow (optional)
+            <select id="fFlow">
+              <option value="">Not set</option>
+              <option value="light">Light</option>
+              <option value="medium">Medium</option>
+              <option value="heavy">Heavy</option>
+            </select>
+          </label>
+        </div>
+        <label class="f" for="fNotes">Notes (optional)<input type="text" id="fNotes" maxlength="200" placeholder="Symptoms, mood, anything you want to remember"></label>
+        <div class="err" id="logErr" role="alert"></div>
+        <div class="row">
+          <button class="btn" type="submit" id="logSubmit">Save period</button>
+          <button class="btn ghost" type="button" id="logToday">Started today</button>
+          <button class="btn ghost" type="button" id="logCancel" hidden>Cancel edit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="panel" id="p-history" hidden>
+    <div class="card" id="statsCard"></div>
+    <div class="card">
+      <h3>All periods</h3>
+      <div class="list" id="history"></div>
+    </div>
+  </div>
+
+  <!-- Data -->
+  <div class="panel" id="p-data" hidden>
+    <div class="card">
+      <h2>Import past cycles</h2>
+      <p class="muted">Upload a CSV or JSON file, or paste dates below. One period start per line works. A header row with <span class="mono">start, end, flow, notes</span> is also read.</p>
+      <div class="fields">
+        <label class="f" for="impFile">File<input type="file" id="impFile" accept=".csv,.txt,.json,text/csv,application/json,text/plain" style="padding:8px 0"></label>
+        <label class="f" for="impOrder">Dates like 03/04/2026 mean
+          <select id="impOrder"><option value="dmy">3 April (day first)</option><option value="mdy">March 4 (month first)</option></select>
+        </label>
+      </div>
+      <label class="f" for="impText">Or paste data
+        <textarea id="impText" spellcheck="false" placeholder="start,end&#10;2026-07-02,2026-07-06&#10;2026-07-30,2026-08-03&#10;27.08.2026"></textarea>
+      </label>
+      <div class="row">
+        <button class="btn ghost" id="impParse" type="button">Preview</button>
+      </div>
+      <div id="impResult"></div>
+    </div>
+    <div class="card">
+      <h2>Export</h2>
+      <p class="muted">Copy your data to keep a backup or move it to another browser, then paste it into Import.</p>
+      <div class="row">
+        <button class="btn ghost" id="copyJson" type="button">Copy as JSON</button>
+        <button class="btn ghost" id="copyCsv" type="button">Copy as CSV</button>
+      </div>
+      <textarea id="expText" readonly spellcheck="false" aria-label="Exported data"></textarea>
+      <div id="expMsg" class="ok"></div>
+    </div>
+    <div class="card">
+      <h2>Delete everything</h2>
+      <p class="muted">Removes all logged periods from this browser. Export first if you want a copy.</p>
+      <div class="row">
+        <button class="btn danger" id="wipe" type="button">Delete all data</button>
+        <button class="btn danger" id="wipeYes" type="button" hidden>Yes, delete everything</button>
+        <button class="btn ghost" id="wipeNo" type="button" hidden>Keep my data</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">Predictions are estimates from your own history and can be off. Talk to a doctor about irregular or painful cycles.</p>
+</div>
+
+<script>
+// <logic>
+var DAY = 864e5;
+var LUTEAL = 14;
+function parseISO(s) { var p = s.split('-').map(Number); return Date.UTC(p[0], p[1] - 1, p[2]) / DAY; }
+function toISO(n) { return new Date(n * DAY).toISOString().slice(0, 10); }
+function isISO(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  return toISO(parseISO(s)) === s;
+}
+function median(a) {
+  var s = a.slice().sort(function (x, y) { return x - y; }), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function analyse(cycles) {
+  var sorted = cycles.slice().sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
+  var starts = sorted.map(function (c) { return parseISO(c.start); });
+  var gaps = [];
+  for (var i = 1; i < starts.length; i++) gaps.push({ len: starts[i] - starts[i - 1], i: i, use: false });
+  var valid = gaps.filter(function (g) { return g.len >= 15 && g.len <= 60; });
+  var recent = valid.slice(-12);
+  recent.forEach(function (g) { g.use = true; });
+  if (recent.length >= 4) {
+    var lens = recent.map(function (g) { return g.len; });
+    var med = median(lens);
+    var mad = median(lens.map(function (l) { return Math.abs(l - med); }));
+    var limit = Math.max(6, 3 * 1.4826 * mad);
+    recent.forEach(function (g) { if (Math.abs(g.len - med) > limit) g.use = false; });
+  }
+  var kept = recent.filter(function (g) { return g.use; });
+  var n = kept.length, sw = 0, sl = 0, k;
+  kept.forEach(function (g, idx) {
+    var w = Math.pow(0.85, n - 1 - idx);
+    sw += w; sl += w * g.len;
+  });
+  var mean = 28, sd = 0;
+  if (n > 0) {
+    var w0 = n < 3 ? (3 - n) * 0.5 : 0;
+    mean = (sl + 28 * w0) / (sw + w0);
+    var vs = 0;
+    kept.forEach(function (g, idx) {
+      var w = Math.pow(0.85, n - 1 - idx);
+      vs += w * Math.pow(g.len - (sl / sw), 2);
+    });
+    sd = Math.sqrt(vs / sw);
+  }
+  var margin = Math.max(1, Math.ceil(sd));
+  if (n === 0) margin = 4; else if (n < 3) margin = Math.max(margin, 3);
+
+  var durs = sorted.map(function (c) { return c.end ? parseISO(c.end) - parseISO(c.start) + 1 : null; })
+    .filter(function (d) { return d && d >= 1 && d <= 14; });
+  var periodLen = durs.length ? Math.round(durs.reduce(function (a, b) { return a + b; }, 0) / durs.length) : 5;
+
+  var confidence = 'Low';
+  if (n >= 6 && sd <= 2) confidence = 'High';
+  else if (n >= 3 && sd <= 4) confidence = 'Medium';
+
+  var last = sorted.length ? sorted[sorted.length - 1] : null;
+  var lastStart = last ? starts[starts.length - 1] : null;
+  var cycleLen = Math.round(mean);
+  var preds = [];
+  if (last) {
+    for (k = 1; k <= 6; k++) {
+      var st = lastStart + cycleLen * k;
+      var m = Math.ceil(margin * Math.sqrt(k));
+      preds.push({ k: k, start: st, margin: m, ov: st - LUTEAL, fertileFrom: st - LUTEAL - 5, fertileTo: st - LUTEAL + 1, periodLen: periodLen });
+    }
+  }
+  return { sorted: sorted, starts: starts, gaps: gaps, kept: kept, n: n, mean: mean, sd: sd, margin: margin,
+    periodLen: periodLen, confidence: confidence, last: last, lastStart: lastStart, cycleLen: cycleLen, preds: preds,
+    min: n ? Math.min.apply(null, kept.map(function (g) { return g.len; })) : null,
+    max: n ? Math.max.apply(null, kept.map(function (g) { return g.len; })) : null };
+}
+
+function parseDateToken(raw, order) {
+  var t = String(raw == null ? '' : raw).trim().replace(/^["']|["']$/g, '').trim();
+  var m = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[T\s].*)?$/), y, mo, d;
+  if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else {
+    m = t.match(/^(\d{1,2})([.\/-])(\d{1,2})\2(\d{2,4})$/);
+    if (!m) return null;
+    var a = +m[1], b = +m[3]; y = +m[4]; if (y < 100) y += 2000;
+    var dayFirst = m[2] === '.' || order === 'dmy';
+    if (a > 12) dayFirst = true; else if (b > 12) dayFirst = false;
+    if (dayFirst) { d = a; mo = b; } else { mo = a; d = b; }
+  }
+  var iso = y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  return isISO(iso) ? iso : null;
+}
+
+function splitLine(line, delim) {
+  var out = [], cur = '', q = false;
+  for (var i = 0; i < line.length; i++) {
+    var ch = line[i];
+    if (ch === '"') q = !q;
+    else if (ch === delim && !q) { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map(function (s) { return s.trim(); });
+}
+
+function parseImport(text, order) {
+  var rows = [], skipped = [];
+  var t = text.trim();
+  if (!t) return { rows: rows, skipped: skipped };
+  function pushRow(o, label) {
+    var s = parseDateToken(o.start, order);
+    if (!s) { skipped.push(label + ': no valid start date'); return; }
+    var e = o.end ? parseDateToken(o.end, order) : null;
+    if (o.end && !e) { skipped.push(label + ': end date not understood, kept start only'); }
+    if (e && parseISO(e) < parseISO(s)) { skipped.push(label + ': end is before start, kept start only'); e = null; }
+    var flow = ['light', 'medium', 'heavy'].indexOf(String(o.flow || '').toLowerCase()) >= 0 ? String(o.flow).toLowerCase() : '';
+    rows.push({ start: s, end: e || '', flow: flow, notes: String(o.notes || '').slice(0, 200) });
+  }
+  if (t[0] === '[' || t[0] === '{') {
+    var data;
+    try { data = JSON.parse(t); } catch (err) { return { rows: rows, skipped: ['This is not valid JSON.'] }; }
+    var arr = Array.isArray(data) ? data : (data && Array.isArray(data.cycles) ? data.cycles : null);
+    if (!arr) return { rows: rows, skipped: ['JSON needs to be a list of cycles.'] };
+    arr.forEach(function (it, i) {
+      var label = 'Item ' + (i + 1);
+      if (typeof it === 'string') pushRow({ start: it }, label);
+      else if (it && typeof it === 'object') pushRow({
+        start: it.start || it.startDate || it.date || it.from,
+        end: it.end || it.endDate || it.to, flow: it.flow, notes: it.notes || it.note }, label);
+      else skipped.push(label + ': not understood');
+    });
+    return { rows: rows, skipped: skipped };
+  }
+  var lines = t.split(/\r?\n/).filter(function (l) { return l.trim(); });
+  var delim = lines[0].indexOf('\t') >= 0 ? '\t' : (lines[0].split(';').length > lines[0].split(',').length ? ';' : ',');
+  var cols = { start: 0, end: 1, flow: 2, notes: 3 }, startAt = 0;
+  var head = splitLine(lines[0], delim);
+  if (/[a-z]/i.test(lines[0]) && !head.some(function (h) { return parseDateToken(h, order); })) {
+    startAt = 1; cols = { start: -1, end: -1, flow: -1, notes: -1 };
+    head.forEach(function (h, i) {
+      var x = h.toLowerCase();
+      if (cols.start < 0 && /(start|begin|first|from|^date)/.test(x)) cols.start = i;
+      else if (cols.end < 0 && /(end|stop|last|to$|until)/.test(x)) cols.end = i;
+      else if (cols.flow < 0 && /flow/.test(x)) cols.flow = i;
+      else if (cols.notes < 0 && /(note|comment|symptom)/.test(x)) cols.notes = i;
+    });
+    if (cols.start < 0) cols.start = 0;
+  }
+  for (var i = startAt; i < lines.length; i++) {
+    var c = splitLine(lines[i], delim), label = 'Line ' + (i + 1);
+    var o = { start: c[cols.start] };
+    if (cols.end >= 0) {
+      var ev = c[cols.end];
+      if (startAt === 0 && ev && !parseDateToken(ev, order)) o.notes = ev; else o.end = ev;
+    }
+    if (cols.flow >= 0) o.flow = c[cols.flow];
+    if (cols.notes >= 0 && o.notes === undefined) o.notes = c[cols.notes];
+    pushRow(o, label);
+  }
+  return { rows: rows, skipped: skipped };
+}
+
+function phaseFor(an, today) {
+  if (!an.last) return null;
+  var day = today - an.lastStart + 1;
+  if (day < 1) return { day: day, name: 'Not started' };
+  if (day > 90) return { day: day, name: 'Log latest period' };
+  var p0 = an.preds[0];
+  if (day <= an.periodLen) return { day: day, name: 'Period' };
+  if (today > p0.start + p0.margin) return { day: day, name: 'Period late' };
+  if (today === p0.ov) return { day: day, name: 'Ovulation (est.)' };
+  if (today >= p0.fertileFrom && today <= p0.fertileTo) return { day: day, name: 'Fertile window' };
+  if (today < p0.fertileFrom) return { day: day, name: 'Follicular' };
+  return { day: day, name: 'Luteal' };
+}
+// </logic>
+
+// ---------- app ----------
+var KEY = 'cycletracker.v1';
+var state = { cycles: [], demo: false, tab: 'overview', view: null, sel: null, editId: null, imp: null, storageOK: true };
+var $ = function (id) { return document.getElementById(id); };
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function uid() { return Math.random().toString(36).slice(2, 9); }
+function todayN() { var d = new Date(); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY; }
+function fmt(n, o) { return new Date(n * DAY).toLocaleDateString('en-GB', Object.assign({ timeZone: 'UTC' }, o || { day: 'numeric', month: 'short' })); }
+function fmtFull(n) { return fmt(n, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); }
+function fmtRange(a, b) { return fmt(a) + ' to ' + fmt(b); }
+
+function load() {
+  try {
+    var raw = localStorage.getItem(KEY);
+    if (raw) {
+      var d = JSON.parse(raw);
+      if (d && Array.isArray(d.cycles)) {
+        state.cycles = d.cycles.filter(function (c) { return c && isISO(c.start); }).map(function (c) {
+          return { id: c.id || uid(), start: c.start, end: isISO(c.end) ? c.end : '', flow: c.flow || '', notes: c.notes || '' };
+        });
+        return true;
+      }
+    }
+  } catch (e) { state.storageOK = false; }
+  return false;
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify({ v: 1, cycles: state.cycles })); }
+  catch (e) { state.storageOK = false; renderBanners(); }
+}
+function sampleData() {
+  var t = todayN(), lens = [28, 29, 27, 30, 28, 26, 29], start = t - 11, out = [];
+  for (var i = 0; i <= lens.length; i++) {
+    out.unshift({ id: 'ex' + i, start: toISO(start), end: i === 0 && t - start < 4 ? '' : toISO(start + 4), flow: '', notes: '' });
+    start -= lens[i] || 28;
+  }
+  return out;
+}
+function leaveDemo() { if (state.demo) { state.cycles = []; state.demo = false; } }
+
+function upsert(c) {
+  leaveDemo();
+  var ex = state.cycles.filter(function (x) { return x.start === c.start && x.id !== c.id; })[0];
+  if (ex) { ex.end = c.end || ex.end; ex.flow = c.flow || ex.flow; ex.notes = c.notes || ex.notes; return 'updated'; }
+  var own = c.id && state.cycles.filter(function (x) { return x.id === c.id; })[0];
+  if (own) { own.start = c.start; own.end = c.end; own.flow = c.flow; own.notes = c.notes; return 'updated'; }
+  state.cycles.push({ id: uid(), start: c.start, end: c.end || '', flow: c.flow || '', notes: c.notes || '' });
+  return 'added';
+}
+
+// ---------- render ----------
+function renderBanners() {
+  var h = '';
+  if (state.demo) h += '<div class="banner"><b>Example data.</b> These cycles are made up so you can see how the tracker works. Nothing here is saved.<div class="row"><button class="btn small" data-act="startOwn">Start with my own data</button></div></div>';
+  if (!state.storageOK) h += '<div class="banner">This browser is blocking local storage, so your data will be lost when you close the page. Use Export to keep a copy.</div>';
+  $('banners').innerHTML = h;
+}
+
+function renderHero(an, today) {
+  var h;
+  if (!an.last) {
+    h = '<div class="label">Next period</div><div class="big">&ndash;</div><p class="muted">Log your first period start to get a prediction. Importing past cycles makes it more accurate.</p><div class="row"><button class="btn" data-act="goLog">Log a period</button><button class="btn ghost" data-act="goData">Import past cycles</button></div>';
+  } else {
+    var p = an.preds[0], diff = p.start - today, ph = phaseFor(an, today);
+    var big, small;
+    if (diff > 0) { big = diff; small = diff === 1 ? 'day to go' : 'days to go'; }
+    else if (diff === 0) { big = 'Today'; small = ''; }
+    else { big = -diff; small = -diff === 1 ? 'day late' : 'days late'; }
+    var win = fmt(p.start - p.margin) + ' to ' + fmt(p.start + p.margin);
+    var fp = an.preds.filter(function (x) { return x.fertileTo >= today; })[0] || p;
+    h = '<div class="label">Next period</div>' +
+      '<div class="big">' + esc(big) + (small ? '<small>' + small + '</small>' : '') + '</div>' +
+      '<p>Expected <b>' + fmtFull(p.start) + '</b><span class="muted"> &middot; likely ' + win + '</span></p>' +
+      '<div class="facts">' +
+      '<div class="fact"><span class="label">Cycle day</span><b class="num">' + (ph && ph.day > 0 && ph.day <= 90 ? ph.day : '&ndash;') + '</b></div>' +
+      '<div class="fact"><span class="label">Phase</span><b>' + esc(ph ? ph.name : '') + '</b></div>' +
+      '<div class="fact"><span class="label">Average cycle</span><b class="num">' + an.mean.toFixed(1) + ' days</b></div>' +
+      '<div class="fact"><span class="label">Confidence</span><span class="tag ' + (an.confidence === 'Low' ? 'low' : '') + '">' + an.confidence + '</span></div>' +
+      '</div>' +
+      '<p class="muted" style="font-size:0.88rem">' + (fp.fertileTo < today ? '' : 'Fertile window ' + fmtRange(fp.fertileFrom, fp.fertileTo) + ', ovulation around ' + fmt(fp.ov) + '.') + '</p>' +
+      '<div class="row"><button class="btn" data-act="startToday">Period started today</button></div>';
+  }
+  $('hero').innerHTML = h;
+}
+
+function dayStatus(n, an) {
+  var s = { logged: false, pred: false, fertile: false, ov: false, predMargin: 0 };
+  an.sorted.forEach(function (c) {
+    var st = parseISO(c.start), en = c.end ? parseISO(c.end) : st + an.periodLen - 1;
+    if (n >= st && n <= en) s.logged = true;
+  });
+  an.preds.forEach(function (p) {
+    if (n >= p.start && n < p.start + an.periodLen) { s.pred = true; s.predMargin = p.margin; }
+    if (n >= p.fertileFrom && n <= p.fertileTo) s.fertile = true;
+    if (n === p.ov) s.ov = true;
+  });
+  return s;
+}
+
+function renderCalendar(an, today) {
+  var v = state.view, first = Date.UTC(v.y, v.m, 1) / DAY;
+  $('monthTitle').textContent = new Date(first * DAY).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  var lead = (new Date(first * DAY).getUTCDay() + 6) % 7;
+  var dim = new Date(Date.UTC(v.y, v.m + 1, 0)).getUTCDate();
+  var h = '';
+  for (var i = 0; i < lead; i++) h += '<div class="d blank"></div>';
+  for (var d = 1; d <= dim; d++) {
+    var n = first + d - 1, s = dayStatus(n, an);
+    var cls = 'd' + (s.logged ? ' logged' : s.pred ? ' pred' : s.fertile ? ' fertile' : '') + (s.ov ? ' ov' : '') + (n === today ? ' today' : '') + (n === state.sel ? ' sel' : '');
+    h += '<button class="' + cls + '" data-day="' + n + '" aria-label="' + esc(fmtFull(n)) + '">' + d + '</button>';
+  }
+  $('cal').innerHTML = h;
+  if (!$('dows').children.length) $('dows').innerHTML = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(function (x) { return '<div class="dow">' + x + '</div>'; }).join('');
+  renderSel(an, today);
+}
+
+function renderSel(an, today) {
+  var el = $('selPanel');
+  if (state.sel == null) { el.innerHTML = '<p class="muted" style="font-size:0.88rem">Tap a day to see what it is and to log a period start or end.</p>'; return; }
+  var n = state.sel, s = dayStatus(n, an), bits = [];
+  if (s.logged) bits.push('Logged period');
+  if (s.pred) bits.push('Predicted period (may shift by up to ' + s.predMargin + ' ' + (s.predMargin === 1 ? 'day' : 'days') + ')');
+  if (s.ov) bits.push('Estimated ovulation');
+  else if (s.fertile) bits.push('Fertile window');
+  if (!bits.length) bits.push('Nothing logged or predicted');
+  var open = an.sorted.filter(function (c) { var st = parseISO(c.start); return !c.end && n >= st && n - st < 15; })[0];
+  var h = '<div class="sel-panel"><b>' + fmtFull(n) + '</b><span class="muted">' + bits.join(' &middot; ') + '</span><div class="row">';
+  if (n <= today) h += '<button class="btn small" data-act="logDay" data-day="' + n + '">Period started this day</button>';
+  if (open && n >= parseISO(open.start)) h += '<button class="btn ghost small" data-act="endDay" data-id="' + open.id + '" data-day="' + n + '">Period ended this day</button>';
+  h += '</div></div>';
+  el.innerHTML = h;
+}
+
+function renderForecast(an) {
+  var el = $('forecast');
+  if (!an.last) { el.innerHTML = '<div class="empty">Predictions appear after you log a period.</div>'; return; }
+  el.innerHTML = an.preds.slice(0, 3).map(function (p) {
+    return '<div class="li"><div><b>' + fmtFull(p.start) + '</b><div class="meta">Likely ' + fmtRange(p.start - p.margin, p.start + p.margin) + '</div></div>' +
+      '<div class="meta" style="text-align:right">Fertile ' + fmtRange(p.fertileFrom, p.fertileTo) + '<br>Ovulation about ' + fmt(p.ov) + '</div></div>';
+  }).join('');
+}
+
+function renderHistory(an) {
+  var sc = $('statsCard');
+  var h = '<h3>Cycle lengths</h3>';
+  if (!an.gaps.length) {
+    h += '<div class="empty">You need at least two period starts to see cycle lengths.</div>';
+  } else {
+    var shown = an.gaps.slice(-12), mx = Math.max.apply(null, shown.map(function (g) { return g.len; }).concat([an.mean])) * 1.08;
+    var keptSet = {}; an.kept.forEach(function (g) { keptSet[g.i] = true; });
+    h += '<div class="bars">' + shown.map(function (g) {
+      return '<div class="bar' + (keptSet[g.i] ? '' : ' skip') + '" style="height:' + (g.len / mx * 100).toFixed(1) + '%" title="' + g.len + ' days"><span>' + g.len + '</span></div>';
+    }).join('') + '<div class="avgline" style="bottom:' + (an.mean / mx * 100).toFixed(1) + '%"><span>avg ' + an.mean.toFixed(1) + '</span></div></div>';
+    h += '<p class="muted" style="font-size:0.82rem">Days between period starts, oldest to newest. Dashed bars are left out of the average as outliers or gaps.</p>';
+    h += '<div class="facts" style="border-top:0;padding-top:0">' +
+      '<div class="fact"><span class="label">Cycles used</span><b class="num">' + an.n + '</b></div>' +
+      '<div class="fact"><span class="label">Range</span><b class="num">' + (an.n ? an.min + ' to ' + an.max : '&ndash;') + '</b></div>' +
+      '<div class="fact"><span class="label">Variation</span><b class="num">&plusmn;' + an.sd.toFixed(1) + ' d</b></div>' +
+      '<div class="fact"><span class="label">Period length</span><b class="num">' + an.periodLen + ' days</b></div></div>';
+  }
+  sc.innerHTML = h;
+
+  var el = $('history');
+  if (!an.sorted.length) { el.innerHTML = '<div class="empty">No periods logged yet.</div>'; return; }
+  var rows = an.sorted.slice().reverse();
+  el.innerHTML = rows.map(function (c, idx) {
+    var i = an.sorted.length - 1 - idx, st = parseISO(c.start);
+    var nextGap = i < an.sorted.length - 1 ? an.starts[i + 1] - st : null;
+    var dur = c.end ? parseISO(c.end) - st + 1 : null;
+    var meta = [];
+    if (dur) meta.push(dur + (dur === 1 ? ' day' : ' days') + ' of bleeding');
+    if (nextGap) meta.push('cycle ' + nextGap + ' days');
+    if (c.flow) meta.push(c.flow + ' flow');
+    return '<div class="li"><div><b>' + fmtFull(st) + '</b><div class="meta">' + (c.end ? 'to ' + fmt(parseISO(c.end)) + ' &middot; ' : 'no end date &middot; ') + esc(meta.join(' · ')) + '</div>' +
+      (c.notes ? '<div class="meta">' + esc(c.notes) + '</div>' : '') + '</div>' +
+      '<div class="row"><button class="btn ghost small" data-act="edit" data-id="' + c.id + '">Edit</button>' +
+      '<button class="btn danger small" data-act="del" data-id="' + c.id + '">Delete</button></div></div>';
+  }).join('');
+}
+
+function exportData() {
+  var s = state.cycles.slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; });
+  return s;
+}
+function renderExport() {
+  state.expFormat = state.expFormat || 'json';
+  var s = exportData();
+  var txt = state.expFormat === 'csv'
+    ? 'start,end,flow,notes\n' + s.map(function (c) { return [c.start, c.end, c.flow, '"' + String(c.notes).replace(/"/g, '""') + '"'].join(','); }).join('\n')
+    : JSON.stringify(s.map(function (c) { return { start: c.start, end: c.end || undefined, flow: c.flow || undefined, notes: c.notes || undefined }; }), null, 2);
+  $('expText').value = state.demo ? '' : txt;
+}
+
+function render() {
+  var today = todayN(), an = analyse(state.cycles);
+  if (!state.view) { var d = new Date(); state.view = { y: d.getFullYear(), m: d.getMonth() }; }
+  renderBanners(); renderHero(an, today);
+  ['overview', 'log', 'history', 'data'].forEach(function (t) { $('p-' + t).hidden = state.tab !== t; });
+  Array.prototype.forEach.call($('tabs').children, function (b) { b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)); });
+  renderCalendar(an, today); renderForecast(an); renderHistory(an); renderExport();
+}
+
+// ---------- actions ----------
+function setTab(t) { state.tab = t; render(); window.scrollTo(0, 0); }
+function flash(id, msg, cls) { var e = $(id); e.className = cls; e.textContent = msg; }
+
+function fillForm(c) {
+  $('fStart').value = c ? c.start : ''; $('fEnd').value = c ? c.end : '';
+  $('fFlow').value = c ? c.flow : ''; $('fNotes').value = c ? c.notes : '';
+  $('logTitle').textContent = c ? 'Edit period' : 'Log a period';
+  $('logSubmit').textContent = c ? 'Save changes' : 'Save period';
+  $('logCancel').hidden = !c; $('logErr').textContent = '';
+}
+function jumpToDate(n) { var d = new Date(n * DAY); state.view = { y: d.getUTCFullYear(), m: d.getUTCMonth() }; }
+
+document.addEventListener('click', function (ev) {
+  var t = ev.target.closest('button'); if (!t) return;
+  var today = todayN();
+  if (t.dataset.tab) return setTab(t.dataset.tab);
+  if (t.dataset.day && !t.dataset.act) { state.sel = +t.dataset.day; return render(); }
+  var a = t.dataset.act;
+  if (a === 'goLog') { state.editId = null; fillForm(null); return setTab('log'); }
+  if (a === 'goData') return setTab('data');
+  if (a === 'startOwn') { leaveDemo(); render(); return; }
+  if (a === 'startToday' || a === 'logDay') {
+    var n = a === 'startToday' ? today : +t.dataset.day;
+    upsert({ start: toISO(n), end: '', flow: '', notes: '' }); save(); jumpToDate(n); state.sel = n; return render();
+  }
+  if (a === 'endDay') {
+    var c = state.cycles.filter(function (x) { return x.id === t.dataset.id; })[0];
+    if (c) { c.end = toISO(+t.dataset.day); save(); } return render();
+  }
+  if (a === 'edit') {
+    var e = state.cycles.filter(function (x) { return x.id === t.dataset.id; })[0];
+    if (e) { state.editId = e.id; fillForm(e); setTab('log'); } return;
+  }
+  if (a === 'del') {
+    if (t.dataset.arm === '1') { state.cycles = state.cycles.filter(function (x) { return x.id !== t.dataset.id; }); leaveDemoSafe(); save(); return render(); }
+    t.dataset.arm = '1'; t.textContent = 'Tap again to delete'; return;
+  }
+});
+function leaveDemoSafe() { /* deleting from example data only changes the sample view */ }
+
+$('prev').onclick = function () { var v = state.view; state.view = v.m === 0 ? { y: v.y - 1, m: 11 } : { y: v.y, m: v.m - 1 }; render(); };
+$('next').onclick = function () { var v = state.view; state.view = v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }; render(); };
+
+$('logToday').onclick = function () { $('fStart').value = toISO(todayN()); };
+$('logCancel').onclick = function () { state.editId = null; fillForm(null); setTab('history'); };
+$('logForm').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var s = $('fStart').value, e = $('fEnd').value, err = $('logErr');
+  if (!isISO(s)) { err.textContent = 'Pick the first day of the period.'; return; }
+  if (parseISO(s) > todayN()) { err.textContent = 'The first day cannot be in the future.'; return; }
+  if (e && !isISO(e)) { err.textContent = 'The last day is not a valid date.'; return; }
+  if (e && parseISO(e) < parseISO(s)) { err.textContent = 'The last day must be on or after the first day.'; return; }
+  if (e && parseISO(e) - parseISO(s) > 14) { err.textContent = 'That period would be longer than 15 days. Check the dates.'; return; }
+  upsert({ id: state.editId, start: s, end: e, flow: $('fFlow').value, notes: $('fNotes').value.trim() });
+  save(); jumpToDate(parseISO(s)); state.sel = parseISO(s); state.editId = null; fillForm(null); setTab('overview');
+});
+
+// import
+function runPreview(text) {
+  var r = parseImport(text, $('impOrder').value);
+  state.imp = r;
+  var h = '';
+  if (!r.rows.length) {
+    h = '<div class="err">No periods found. ' + esc(r.skipped[0] || 'Check the format and try again.') + '</div>';
+  } else {
+    h = '<p class="ok">Found ' + r.rows.length + (r.rows.length === 1 ? ' period' : ' periods') + '.</p><div class="tablewrap"><table><thead><tr><th>Start</th><th>End</th><th>Flow</th><th>Notes</th></tr></thead><tbody>' +
+      r.rows.slice(0, 8).map(function (x) { return '<tr><td class="mono">' + x.start + '</td><td class="mono">' + (x.end || '') + '</td><td>' + esc(x.flow) + '</td><td>' + esc(x.notes) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' + (r.rows.length > 8 ? '<p class="muted" style="font-size:0.85rem">and ' + (r.rows.length - 8) + ' more</p>' : '');
+    h += '<div class="row"><button class="btn" id="impGo" type="button">Import ' + r.rows.length + '</button></div>';
+  }
+  if (r.skipped.length) h += '<details><summary>' + r.skipped.length + ' skipped or adjusted</summary><div class="how">' + r.skipped.slice(0, 20).map(function (x) { return '<p>' + esc(x) + '</p>'; }).join('') + '</div></details>';
+  $('impResult').innerHTML = h;
+}
+$('impParse').onclick = function () { runPreview($('impText').value); };
+$('impOrder').onchange = function () { if ($('impText').value.trim()) runPreview($('impText').value); };
+$('impFile').onchange = function (ev) {
+  var f = ev.target.files[0]; if (!f) return;
+  if (f.size > 2e6) { $('impResult').innerHTML = '<div class="err">That file is over 2 MB. Pick a smaller one.</div>'; return; }
+  var fr = new FileReader();
+  fr.onload = function () { $('impText').value = String(fr.result); runPreview(String(fr.result)); };
+  fr.onerror = function () { $('impResult').innerHTML = '<div class="err">The file could not be read.</div>'; };
+  fr.readAsText(f);
+};
+$('impResult').addEventListener('click', function (ev) {
+  if (ev.target.id !== 'impGo' || !state.imp) return;
+  var added = 0, updated = 0;
+  leaveDemo();
+  state.imp.rows.forEach(function (r) { if (upsert({ start: r.start, end: r.end, flow: r.flow, notes: r.notes }) === 'added') added++; else updated++; });
+  save(); state.imp = null; $('impText').value = ''; $('impFile').value = '';
+  var last = exportData().pop(); if (last) jumpToDate(parseISO(last.start));
+  render();
+  $('impResult').innerHTML = '<p class="ok">Imported ' + added + ' new' + (updated ? ' and updated ' + updated + ' existing' : '') + '. Predictions are updated.</p>';
+});
+
+// export
+function copyText(txt, msgId) {
+  var done = function () { flash('expMsg', 'Copied.', 'ok'); };
+  var fallback = function () { var t = $('expText'); t.focus(); t.select(); flash('expMsg', 'Selected. Press copy on your keyboard or long-press to copy.', 'ok'); };
+  try { navigator.clipboard.writeText(txt).then(done, fallback); } catch (e) { fallback(); }
+}
+$('copyJson').onclick = function () { state.expFormat = 'json'; renderExport(); if (!$('expText').value) return flash('expMsg', 'Nothing to export yet.', 'err'); copyText($('expText').value); };
+$('copyCsv').onclick = function () { state.expFormat = 'csv'; renderExport(); if (!$('expText').value) return flash('expMsg', 'Nothing to export yet.', 'err'); copyText($('expText').value); };
+
+// wipe
+$('wipe').onclick = function () { $('wipe').hidden = true; $('wipeYes').hidden = false; $('wipeNo').hidden = false; };
+$('wipeNo').onclick = function () { $('wipe').hidden = false; $('wipeYes').hidden = true; $('wipeNo').hidden = true; };
+$('wipeYes').onclick = function () { state.cycles = []; state.demo = false; save(); $('wipeNo').onclick(); render(); };
+
+// boot
+(function () {
+  var had = load();
+  if (!had) { state.cycles = sampleData(); state.demo = true; }
+  state.sel = null;
+  fillForm(null);
+  render();
+})();
+</script>
+</body>
+</html>
